@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIAGA - Sistem Informasi Agenda dan Kegiatan</title>
+
+  <!-- Custom Image Assets URLs -->
+  <!-- Gambar diconvert/disimpan ke Data URI agar langsung tertanam tanpa perlu file image terpisah -->
+  <link rel="icon" type="image/png" id="favicon-link" href="https://i.ibb.co.id/avatar-siaga.png">
+
+  <!-- PWA Meta Tags for Android & Mobile Support -->
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIAGA">
+
+  <!-- Dynamic Web App Manifest (Data URL generated dynamically via JS) -->
+  <link id="manifest-placeholder" rel="manifest">
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- jsPDF Library for client-side PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar styles */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 10px;
+    }
+    /* Smooth transitions for theme changes */
+    .theme-transition {
+      transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, fill 0.3s ease;
+    }
+  </style>
+</head>
+<body class="theme-transition bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-800/20 dark:border-slate-200/20 text-sm font-semibold">
+      <div class="p-1 rounded-full bg-emerald-500/10 text-emerald-500" id="toast-icon-box">
+        <i data-lucide="check" class="w-4 h-4"></i>
+      </div>
+      <span id="toast-message">Notifikasi berhasil ditampilkan</span>
+    </div>
+  </div>
+
+  <!-- Custom Safe Modal Confirmation -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 dark:bg-slate-950/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-200">
+    <div class="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 w-full max-w-md p-6 rounded-3xl shadow-2xl transform scale-95 transition-all duration-200">
+      <div class="flex items-center gap-4 text-red-500 mb-4">
+        <div class="p-3 bg-red-500/10 rounded-2xl">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <h3 id="confirm-modal-title" class="text-lg font-bold">Hapus Agenda?</h3>
+      </div>
+      <p id="confirm-modal-desc" class="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+        Apakah Anda yakin ingin menghapus agenda kegiatan ini secara permanen? Data yang dihapus tidak dapat dipulihkan kembali.
+      </p>
+      <div class="flex gap-3 justify-end">
+        <button id="modal-cancel-btn" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-semibold text-sm transition">
+          Batal
+        </button>
+        <button id="modal-confirm-btn" class="px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold text-sm shadow-lg shadow-red-500/20 transition">
+          Hapus Permanen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="max-w-2xl mx-auto p-4 md:p-8 pb-24">
+    
+    <!-- Header SIAGA (Menggunakan Ikon Karakter Baru) -->
+    <header class="flex justify-between items-center mb-8">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl overflow-hidden border-2 border-blue-500/30 shadow-lg shadow-blue-500/20 flex-shrink-0 bg-black flex items-center justify-center">
+          <img id="app-header-icon" alt="Ikon SIAGA" class="w-full h-full object-cover">
+        </div>
+        <div>
+          <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-400 dark:to-cyan-400">
+            SIAGA
+          </h1>
+          <p class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400 uppercase">
+            Sistem Informasi Agenda & Kegiatan
+          </p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <!-- PWA Install Button -->
+        <button id="pwa-install-btn" class="hidden flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-500/20 active:scale-95">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>Install App</span>
+        </button>
+
+        <button id="theme-toggle" class="p-3 rounded-xl bg-slate-200/60 dark:bg-slate-800 hover:scale-105 transition duration-200 text-slate-600 dark:text-yellow-400" aria-label="Ganti Tema">
+          <i data-lucide="moon" id="theme-icon" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Banner Petunjuk Install Manual -->
+    <div id="pwa-manual-guide" class="mb-6 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-900 dark:text-blue-200 flex items-start gap-3">
+      <i data-lucide="smartphone" class="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"></i>
+      <div class="text-xs space-y-1">
+        <p class="font-bold text-sm">Ingin Install Aplikasi SIAGA di HP?</p>
+        <p class="leading-relaxed opacity-90">
+          Jika tombol <strong>Install App</strong> tidak muncul, buka menu browser Chrome (klik <strong>titik tiga ⋮</strong> di kanan atas) lalu pilih <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install Aplikasi"</strong>.
+        </p>
+      </div>
+      <button onclick="document.getElementById('pwa-manual-guide').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-auto p-1">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Input Judul Utama Dinamis -->
+    <div class="mb-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-2xl p-5 shadow-sm">
+      <label for="agenda-title" class="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+        Judul Laporan Agenda:
+      </label>
+      <input type="text" id="agenda-title" class="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800/80 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition font-bold" value="AGENDA HARIAN">
+    </div>
+
+    <!-- Formulir Pendaftaran / Edit Agenda -->
+    <form id="agenda-form" class="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800/60 space-y-4">
+      <div class="flex justify-between items-center mb-2">
+        <h2 id="form-header-title" class="text-xs font-bold uppercase tracking-widest text-blue-500">
+          Tambah Agenda Baru
+        </h2>
+        <button type="button" id="cancel-edit-btn" class="hidden text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-bold transition">
+          Batal Ubah
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <input type="text" id="agenda-nama" required placeholder="Nama Kegiatan" class="w-full p-4 rounded-xl bg-transparent border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="relative">
+            <i data-lucide="map-pin" class="absolute left-4 top-4 text-slate-400 w-5 h-5"></i>
+            <input type="text" id="agenda-tempat" required placeholder="Tempat / Lokasi" class="w-full p-4 pl-12 rounded-xl bg-transparent border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition">
+          </div>
+          <div class="relative">
+            <i data-lucide="clock" class="absolute left-4 top-4 text-slate-400 w-5 h-5"></i>
+            <input type="time" id="agenda-waktu" required class="w-full p-4 pl-12 rounded-xl bg-transparent border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition">
+          </div>
+        </div>
+
+        <input type="text" id="agenda-penyelenggara" placeholder="Penyelenggara" class="w-full p-4 rounded-xl bg-transparent border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition">
+        <input type="url" id="agenda-link" placeholder="Link Surat (e.g. https://...)" class="w-full p-4 rounded-xl bg-transparent border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition">
+        
+        <!-- Fitur Orang yang Menghadiri -->
+        <div class="space-y-2">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Orang yang Menghadiri:</label>
+          <div class="flex gap-2">
+            <input type="text" id="attendee-input" placeholder="Masukkan nama peserta..." class="flex-1 p-4 rounded-xl bg-transparent border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition">
+            <button type="button" id="add-attendee-btn" class="px-6 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold transition">
+              Tambah
+            </button>
+          </div>
+          <div id="attendees-container" class="flex flex-wrap gap-2 pt-2"></div>
+        </div>
+
+        <button type="submit" id="submit-form-btn" class="w-full p-4 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition transform hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25">
+          <i data-lucide="plus" class="w-5 h-5"></i> Tambah Agenda
+        </button>
+      </div>
+    </form>
+
+    <!-- Agenda List Section -->
+    <div class="mt-10 space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-xl font-extrabold tracking-tight">Daftar Agenda</h2>
+        <div id="bulk-actions" class="flex gap-2 hidden">
+          <button id="btn-clear-all" class="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl font-bold transition active:scale-95">
+            <i data-lucide="trash-2" class="w-4.5 h-4.5"></i> Hapus Semua
+          </button>
+          <button id="btn-pdf" class="flex items-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition shadow-md shadow-red-500/20 active:scale-95">
+            <i data-lucide="file-text" class="w-4.5 h-4.5"></i> PDF
+          </button>
+          <button id="btn-wa" class="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition shadow-md shadow-emerald-500/20 active:scale-95">
+            <i data-lucide="share-2" class="w-4.5 h-4.5"></i> WA
+          </button>
+        </div>
+      </div>
+
+      <!-- Agenda Cards Area -->
+      <div id="agendas-list" class="space-y-4">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Script -->
+  <script>
+    // Custom Icon SVG Standalone Embedding Generator
+    const iconDataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+        <rect width="512" height="512" rx="120" fill="#09090b"/>
+        <!-- Sundanese Udeng Mask Costume Head Icon Render -->
+        <g transform="translate(48, 48) scale(0.8125)">
+          <!-- Face Skin Base -->
+          <path d="M 256 160 C 130 160 110 240 110 330 C 110 420 180 470 256 470 C 332 470 402 420 402 330 C 402 240 382 160 256 160 Z" fill="#fed7aa"/>
+          <!-- Ears -->
+          <circle cx="104" cy="340" r="32" fill="#fed7aa"/>
+          <circle cx="408" cy="340" r="32" fill="#fed7aa"/>
+          <!-- Hair & Body Clothes -->
+          <path d="M 140 430 Q 256 480 372 430 L 410 512 L 100 512 Z" fill="#18181b"/>
+          <path d="M 96 260 C 80 180 140 80 256 70 C 372 80 432 180 416 260 C 380 120 132 120 96 260 Z" fill="#1e1e1e"/>
+          <!-- Sundanese Headband / Udeng Biru -->
+          <path d="M 90 220 C 90 220 256 170 422 220 L 436 295 C 330 250 182 250 76 295 Z" fill="#0284c7"/>
+          <path d="M 256 30 L 330 180 L 182 180 Z" fill="#0284c7"/>
+          <path d="M 256 60 L 310 180 L 202 180 Z" fill="#38bdf8"/>
+          <!-- Eyes & Eyebrows -->
+          <ellipse cx="190" cy="355" rx="28" ry="32" fill="#18181b"/>
+          <ellipse cx="322" cy="355" rx="28" ry="32" fill="#18181b"/>
+          <circle cx="200" cy="345" r="9" fill="#ffffff"/>
+          <circle cx="332" cy="345" r="9" fill="#ffffff"/>
+          <path d="M 160 305 Q 190 290 225 310" stroke="#18181b" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <path d="M 352 305 Q 322 290 287 310" stroke="#18181b" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <!-- Cheeks Blush & Smile -->
+          <ellipse cx="165" cy="390" rx="20" ry="12" fill="#fca5a5" opacity="0.6"/>
+          <ellipse cx="347" cy="390" rx="20" ry="12" fill="#fca5a5" opacity="0.6"/>
+          <path d="M 215 425 Q 256 455 297 425" stroke="#18181b" stroke-width="10" stroke-linecap="round" fill="none"/>
+        </g>
+      </svg>
+    `);
+
+    // Inject App Header Icon and Favicon
+    document.getElementById('favicon-link').setAttribute('href', iconDataUrl);
+    document.getElementById('app-header-icon').setAttribute('src', iconDataUrl);
+
+    // PWA Manifest Generation Script with Icon
+    (function injectPWAManifest() {
+      const manifestObj = {
+        name: "SIAGA - Agenda Kegiatan",
+        short_name: "SIAGA",
+        description: "Sistem Informasi Agenda dan Kegiatan Harian",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#0f172a",
+        theme_color: "#0284c7",
+        icons: [
+          {
+            src: iconDataUrl,
+            sizes: "512x512",
+            type: "image/svg+xml",
+            purpose: "any maskable"
+          }
+        ]
+      };
+
+      const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
+      const manifestUrl = URL.createObjectURL(manifestBlob);
+      document.getElementById('manifest-placeholder').setAttribute('href', manifestUrl);
+    })();
+
+    // Service Worker Inline Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
+          const CACHE_NAME = 'siaga-v2';
+          self.addEventListener('install', (e) => self.skipWaiting());
+          self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+          self.addEventListener('fetch', (e) => {
+            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+          });
+        `;
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swUrl).catch(err => console.log('Service Worker info:', err));
+      });
+    }
+
+    // Handle PWA Installation Banner Prompts for Android
+    let deferredPrompt;
+    const pwaInstallBtn = document.getElementById('pwa-install-btn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (pwaInstallBtn) {
+        pwaInstallBtn.classList.remove('hidden');
+      }
+    });
+
+    if (pwaInstallBtn) {
+      pwaInstallBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          showToast('Terima kasih! Aplikasi SIAGA sedang diinstal.');
+        }
+        deferredPrompt = null;
+        pwaInstallBtn.classList.add('hidden');
+      });
+    }
+
+    window.addEventListener('appinstalled', () => {
+      if (pwaInstallBtn) pwaInstallBtn.classList.add('hidden');
+      const manualGuide = document.getElementById('pwa-manual-guide');
+      if (manualGuide) manualGuide.remove();
+      showToast('Aplikasi SIAGA berhasil terinstall di HP Anda!');
+    });
+
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      const manualGuide = document.getElementById('pwa-manual-guide');
+      if (manualGuide) manualGuide.style.display = 'none';
+    }
+
+    // Main App Code
+    const state = {
+      darkMode: false,
+      agendas: [],
+      agendaTitle: 'AGENDA HARIAN',
+      currentAttendees: [],
+      editingId: null,
+      deleteTargetId: null,
+      deleteMode: 'single'
+    };
+
+    const el = {
+      toast: document.getElementById('toast'),
+      toastMessage: document.getElementById('toast-message'),
+      toastIconBox: document.getElementById('toast-icon-box'),
+      confirmModal: document.getElementById('confirm-modal'),
+      modalCancel: document.getElementById('modal-cancel-btn'),
+      modalConfirm: document.getElementById('modal-confirm-btn'),
+      themeToggle: document.getElementById('theme-toggle'),
+      themeIcon: document.getElementById('theme-icon'),
+      agendaTitle: document.getElementById('agenda-title'),
+      form: document.getElementById('agenda-form'),
+      formHeaderTitle: document.getElementById('form-header-title'),
+      cancelEditBtn: document.getElementById('cancel-edit-btn'),
+      agendaNama: document.getElementById('agenda-nama'),
+      agendaTempat: document.getElementById('agenda-tempat'),
+      agendaWaktu: document.getElementById('agenda-waktu'),
+      agendaPenyelenggara: document.getElementById('agenda-penyelenggara'),
+      agendaLink: document.getElementById('agenda-link'),
+      attendeeInput: document.getElementById('attendee-input'),
+      addAttendeeBtn: document.getElementById('add-attendee-btn'),
+      attendeesContainer: document.getElementById('attendees-container'),
+      submitFormBtn: document.getElementById('submit-form-btn'),
+      bulkActions: document.getElementById('bulk-actions'),
+      btnClearAll: document.getElementById('btn-clear-all'),
+      btnPdf: document.getElementById('btn-pdf'),
+      btnWa: document.getElementById('btn-wa'),
+      agendasList: document.getElementById('agendas-list')
+    };
+
+    function loadState() {
+      const savedAgendas = localStorage.getItem('daily-agendas');
+      if (savedAgendas) {
+        state.agendas = JSON.parse(savedAgendas);
+        sortAgendas();
+      }
+      
+      const savedTitle = localStorage.getItem('daily-agenda-title');
+      if (savedTitle) {
+        state.agendaTitle = savedTitle;
+        el.agendaTitle.value = savedTitle;
+      }
+
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const savedTheme = localStorage.getItem('daily-agenda-theme');
+      state.darkMode = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+      
+      applyTheme();
+      renderAll();
+    }
+
+    function saveState() {
+      localStorage.setItem('daily-agendas', JSON.stringify(state.agendas));
+      localStorage.setItem('daily-agenda-title', state.agendaTitle);
+      localStorage.setItem('daily-agenda-theme', state.darkMode ? 'dark' : 'light');
+    }
+
+    function applyTheme() {
+      if (state.darkMode) {
+        document.documentElement.classList.add('dark');
+        el.themeIcon.setAttribute('data-lucide', 'sun');
+        el.themeToggle.classList.add('text-yellow-400');
+        el.themeToggle.classList.remove('text-slate-600');
+      } else {
+        document.documentElement.classList.remove('dark');
+        el.themeIcon.setAttribute('data-lucide', 'moon');
+        el.themeToggle.classList.add('text-slate-600');
+        el.themeToggle.classList.remove('text-yellow-400');
+      }
+      lucide.createIcons();
+    }
+
+    function showToast(message, isError = false) {
+      el.toastMessage.textContent = message;
+      if (isError) {
+        el.toastIconBox.className = "p-1 rounded-full bg-red-500/10 text-red-500";
+        el.toastIconBox.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i>';
+      } else {
+        el.toastIconBox.className = "p-1 rounded-full bg-emerald-500/10 text-emerald-500";
+        el.toastIconBox.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+      }
+      lucide.createIcons();
+
+      el.toast.classList.remove('translate-y-20', 'opacity-0');
+      el.toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        el.toast.classList.add('translate-y-20', 'opacity-0');
+        el.toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3000);
+    }
+
+    function sortAgendas() {
+      state.agendas.sort((a, b) => a.waktu.localeCompare(b.waktu));
+    }
+
+    function renderAttendees() {
+      el.attendeesContainer.innerHTML = '';
+      state.currentAttendees.forEach((name, index) => {
+        const chip = document.createElement('span');
+        chip.className = "flex items-center gap-1.5 bg-blue-500/10 text-blue-500 px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-500/20 max-w-full truncate theme-transition";
+        chip.innerHTML = `
+          <span class="truncate">${name}</span>
+          <button type="button" class="hover:text-red-500 focus:outline-none flex-shrink-0 transition" onclick="removeAttendee(${index})">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+        el.attendeesContainer.appendChild(chip);
+      });
+      lucide.createIcons();
+    }
+
+    function renderAgendas() {
+      el.agendasList.innerHTML = '';
+      
+      if (state.agendas.length === 0) {
+        el.bulkActions.classList.add('hidden');
+        el.agendasList.innerHTML = `
+          <div class="text-center p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400 dark:text-slate-600 flex flex-col items-center justify-center gap-3">
+            <i data-lucide="calendar-x" class="w-10 h-10 text-slate-300 dark:text-slate-700"></i>
+            <p class="text-sm font-semibold">Belum ada agenda yang diinput untuk hari ini.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      el.bulkActions.classList.remove('hidden');
+
+      state.agendas.forEach((agenda) => {
+        const card = document.createElement('div');
+        const isEditing = state.editingId === agenda.id;
+        
+        card.className = `p-6 rounded-3xl border transition relative group ${
+          isEditing 
+            ? 'border-blue-500 ring-4 ring-blue-500/10 shadow-lg' 
+            : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm'
+        }`;
+        
+        card.innerHTML = `
+          <h3 class="font-extrabold text-lg text-slate-900 dark:text-white leading-snug tracking-tight mb-3 pr-20">
+            ${agenda.nama.toUpperCase()}
+          </h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <p class="flex items-center gap-2 font-medium">
+              <i data-lucide="clock" class="w-4 h-4 text-blue-500"></i> 
+              <span>${agenda.waktu} WIB</span>
+            </p>
+            <p class="flex items-center gap-2 font-medium">
+              <i data-lucide="map-pin" class="w-4 h-4 text-blue-500"></i> 
+              <span class="truncate">Lokasi: ${agenda.tempat}</span>
+            </p>
+          </div>
+          
+          <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80 text-sm space-y-1.5 text-slate-600 dark:text-slate-400">
+            <p><span class="font-bold text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide">Penyelenggara:</span> ${agenda.penyelenggara || '-'}</p>
+            <p><span class="font-bold text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide">Link Surat:</span> ${agenda.link ? `<a href="${agenda.link}" target="_blank" class="text-blue-500 hover:underline inline-flex items-center gap-1">${agenda.link} <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>` : '-'}</p>
+            <div class="pt-2">
+              <span class="font-bold text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide">Hadir:</span>
+              <div class="flex flex-wrap gap-1.5 mt-1.5">
+                ${agenda.peserta.length > 0 
+                  ? agenda.peserta.map(p => `<span class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-lg text-xs font-semibold">${p}</span>`).join('') 
+                  : '<span class="text-xs text-slate-400 italic">Belum ada daftar hadir</span>'
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-4 mt-5 pt-3 border-t border-dashed border-slate-100 dark:border-slate-800 justify-end">
+            <button onclick="editAgenda(${agenda.id})" class="flex items-center gap-1.5 text-amber-500 text-xs font-bold uppercase tracking-wider hover:underline focus:outline-none transition">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Ubah
+            </button>
+            <button onclick="openDeleteConfirm(${agenda.id})" class="flex items-center gap-1.5 text-red-500 text-xs font-bold uppercase tracking-wider hover:underline focus:outline-none transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
+            </button>
+          </div>
+        `;
+        el.agendasList.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function renderAll() {
+      renderAttendees();
+      renderAgendas();
+    }
+
+    function addAttendee() {
+      const name = el.attendeeInput.value.trim();
+      if (name) {
+        state.currentAttendees.push(name);
+        el.attendeeInput.value = '';
+        renderAttendees();
+        el.attendeeInput.focus();
+      }
+    }
+
+    window.removeAttendee = function(index) {
+      state.currentAttendees.splice(index, 1);
+      renderAttendees();
+    };
+
+    el.form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const agendaData = {
+        nama: el.agendaNama.value.trim(),
+        tempat: el.agendaTempat.value.trim(),
+        waktu: el.agendaWaktu.value.trim(),
+        penyelenggara: el.agendaPenyelenggara.value.trim(),
+        link: el.agendaLink.value.trim(),
+        peserta: [...state.currentAttendees]
+      };
+
+      if (state.editingId) {
+        state.agendas = state.agendas.map(agenda => 
+          agenda.id === state.editingId 
+            ? { ...agenda, ...agendaData }
+            : agenda
+        );
+        showToast('Agenda berhasil diperbarui!');
+        cancelEditingMode();
+      } else {
+        const newAgenda = {
+          id: Date.now(),
+          ...agendaData
+        };
+        state.agendas.push(newAgenda);
+        showToast('Agenda baru berhasil ditambahkan!');
+      }
+
+      sortAgendas();
+      saveState();
+      resetForm();
+      renderAll();
+    });
+
+    function resetForm() {
+      el.agendaNama.value = '';
+      el.agendaTempat.value = '';
+      el.agendaWaktu.value = '';
+      el.agendaPenyelenggara.value = '';
+      el.agendaLink.value = '';
+      state.currentAttendees = [];
+      renderAttendees();
+    }
+
+    window.editAgenda = function(id) {
+      const agenda = state.agendas.find(a => a.id === id);
+      if (!agenda) return;
+
+      state.editingId = id;
+      el.formHeaderTitle.textContent = "Ubah Agenda Kegiatan";
+      el.cancelEditBtn.classList.remove('hidden');
+      el.submitFormBtn.className = "w-full p-4 rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white transition transform hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25";
+      el.submitFormBtn.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i> Simpan Perubahan';
+      
+      el.agendaNama.value = agenda.nama;
+      el.agendaTempat.value = agenda.tempat;
+      el.agendaWaktu.value = agenda.waktu;
+      el.agendaPenyelenggara.value = agenda.penyelenggara || '';
+      el.agendaLink.value = agenda.link || '';
+      state.currentAttendees = [...agenda.peserta];
+      
+      renderAll();
+      lucide.createIcons();
+
+      el.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    function cancelEditingMode() {
+      state.editingId = null;
+      el.formHeaderTitle.textContent = "Tambah Agenda Baru";
+      el.cancelEditBtn.classList.add('hidden');
+      el.submitFormBtn.className = "w-full p-4 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition transform hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25";
+      el.submitFormBtn.innerHTML = '<i data-lucide="plus" class="w-5 h-5"></i> Tambah Agenda';
+      resetForm();
+      renderAll();
+      lucide.createIcons();
+    }
+
+    el.cancelEditBtn.addEventListener('click', cancelEditingMode);
+
+    window.openDeleteConfirm = function(id) {
+      state.deleteTargetId = id;
+      state.deleteMode = 'single';
+      document.getElementById('confirm-modal-title').textContent = "Hapus Agenda?";
+      document.getElementById('confirm-modal-desc').textContent = "Apakah Anda yakin ingin menghapus agenda kegiatan ini secara permanen? Data yang dihapus tidak dapat dipulihkan kembali.";
+      el.confirmModal.classList.remove('opacity-0', 'pointer-events-none');
+      el.confirmModal.firstElementChild.classList.remove('scale-95');
+      el.confirmModal.firstElementChild.classList.add('scale-100');
+    };
+
+    window.openDeleteAllConfirm = function() {
+      state.deleteMode = 'all';
+      document.getElementById('confirm-modal-title').textContent = "Hapus Semua Agenda?";
+      document.getElementById('confirm-modal-desc').textContent = "Apakah Anda yakin ingin mengosongkan seluruh daftar agenda hari ini secara permanen? Tindakan ini tidak dapat dibatalkan.";
+      el.confirmModal.classList.remove('opacity-0', 'pointer-events-none');
+      el.confirmModal.firstElementChild.classList.remove('scale-95');
+      el.confirmModal.firstElementChild.classList.add('scale-100');
+    };
+
+    function closeDeleteConfirm() {
+      state.deleteTargetId = null;
+      el.confirmModal.classList.add('opacity-0', 'pointer-events-none');
+      el.confirmModal.firstElementChild.classList.remove('scale-100');
+      el.confirmModal.firstElementChild.classList.add('scale-95');
+    }
+
+    el.modalCancel.addEventListener('click', closeDeleteConfirm);
+    
+    el.modalConfirm.addEventListener('click', () => {
+      if (state.deleteMode === 'all') {
+        state.agendas = [];
+        showToast('Daftar agenda berhasil dikosongkan!');
+        saveState();
+        cancelEditingMode();
+        closeDeleteConfirm();
+      } else if (state.deleteMode === 'single' && state.deleteTargetId) {
+        state.agendas = state.agendas.filter(a => a.id !== state.deleteTargetId);
+        showToast('Agenda berhasil dihapus!');
+        saveState();
+        if (state.editingId === state.deleteTargetId) {
+          cancelEditingMode();
+        } else {
+          renderAll();
+        }
+        closeDeleteConfirm();
+      }
+    });
+
+    function exportPDF() {
+      if (state.agendas.length === 0) {
+        showToast('Daftar agenda kosong!', true);
+        return;
+      }
+
+      showToast('Memproses file PDF Anda...');
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const margin = 20;
+        let y = 30;
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 4, 'F');
+
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(15, 23, 42);
+        const splitTitle = doc.splitTextToSize(state.agendaTitle.toUpperCase(), pageWidth - (margin * 2));
+        doc.text(splitTitle, margin, y);
+        y += (splitTitle.length * 6) + 4;
+
+        doc.setFont("Helvetica", "italic");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        const timestamp = new Date().toLocaleDateString('id-ID', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        doc.text(`Dokumen Laporan Kegiatan - Diunduh: ${timestamp}`, margin, y);
+        y += 6;
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.4);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 12;
+
+        state.agendas.forEach((item, index) => {
+          if (y > 250) {
+            doc.addPage();
+            y = margin + 10;
+          }
+
+          doc.setFont("Helvetica", "bold");
+          doc.setFontSize(11);
+          doc.setTextColor(15, 23, 42);
+          const titleLine = `${index + 1}. ${item.nama.toUpperCase()}`;
+          const splitItemTitle = doc.splitTextToSize(titleLine, pageWidth - (margin * 2));
+          doc.text(splitItemTitle, margin, y);
+          y += (splitItemTitle.length * 5) + 3;
+
+          doc.setFont("Helvetica", "normal");
+          doc.setFontSize(9.5);
+          doc.setTextColor(51, 65, 85);
+          
+          doc.text(`Waktu: ${item.waktu} WIB`, margin + 6, y);
+          y += 5;
+
+          const splitLoc = doc.splitTextToSize(`Lokasi: ${item.tempat}`, pageWidth - (margin * 2) - 6);
+          doc.text(splitLoc, margin + 6, y);
+          y += (splitLoc.length * 5);
+
+          if (item.link) {
+            const splitLnk = doc.splitTextToSize(`Link Surat: ${item.link}`, pageWidth - (margin * 2) - 6);
+            doc.text(splitLnk, margin + 6, y);
+            y += (splitLnk.length * 5);
+          }
+
+          if (item.penyelenggara) {
+            const splitOrg = doc.splitTextToSize(`Penyelenggara: ${item.penyelenggara}`, pageWidth - (margin * 2) - 6);
+            doc.text(splitOrg, margin + 6, y);
+            y += (splitOrg.length * 5);
+          }
+
+          if (item.peserta && item.peserta.length > 0) {
+            y += 2;
+            doc.setFont("Helvetica", "bold");
+            doc.text("Hadir:", margin + 6, y);
+            y += 4.5;
+            doc.setFont("Helvetica", "normal");
+            
+            item.peserta.forEach(p => {
+              if (y > 275) {
+                doc.addPage();
+                y = margin + 10;
+              }
+              doc.text(`- ${p}`, margin + 10, y);
+              y += 4.5;
+            });
+          }
+
+          y += 3;
+          doc.setDrawColor(241, 245, 249);
+          doc.line(margin, y, pageWidth - margin, y);
+          y += 8;
+        });
+
+        const safeName = state.agendaTitle.toLowerCase().replace(/[^a-z0-9]/gi, '_');
+        doc.save(`${safeName || 'agenda_siaga'}.pdf`);
+        showToast('Unduhan PDF berhasil dimulai!');
+      } catch (err) {
+        console.error(err);
+        showToast('Format teks terlalu kompleks untuk diproses.', true);
+      }
+    }
+
+    function exportWhatsApp() {
+      if (state.agendas.length === 0) {
+        showToast('Daftar agenda kosong!', true);
+        return;
+      }
+
+      let textReport = `Assalamu'alaikum\n\n*${state.agendaTitle.toUpperCase()}*\n\n`;
+
+      state.agendas.forEach((item, index) => {
+        textReport += `*${index + 1}. ${item.nama.toUpperCase()}* | WAKTU: ${item.waktu} WIB\n`;
+        textReport += `Lokasi: ${item.tempat}\n\n`;
+        textReport += `Link Surat: ${item.link || '-'}\n\n`;
+        textReport += `Penyelenggara: ${item.penyelenggara || '-'}\n\n`;
+        
+        textReport += `Hadir:\n`;
+        if (item.peserta && item.peserta.length > 0) {
+          textReport += item.peserta.map(p => `*${p}*`).join('\n') + `\n`;
+        } else {
+          textReport += `-\n`;
+        }
+        
+        textReport += `----------------------------\n\n`;
+      });
+
+      textReport += `*NOTE*\n\n`;
+      textReport += `Bapak/Ibu dan rekan-rekan, agar dapat melaporkan hasil kegiatan agenda harian maupun kegiatan di luar agenda harian melalui tautan/link berikut:\n\n`;
+      textReport += `👉 https://s.id/Laporan_DISKOPUKM\n\n`;
+      textReport += `Mohon laporan diisi secara lengkap dan diusahakan masuk *paling lambat pukul 18.00 WIB,* untuk memudahkan proses rekapitulasi dan pelaporan kepada pimpinan.\n\n`;
+      textReport += `Laporan yang telah diinput dapat ditampilkan dan dicek kembali melalui *Dashboard Laporan DISKOPUKM Kota Bandung* pada tautan berikut:\n\n`;
+      textReport += `👉 https://s.id/Dashboard_DISKOPUKM`;
+
+      const url = `https://wa.me/?text=${encodeURIComponent(textReport)}`;
+      window.open(url, '_blank');
+    }
+
+    el.addAttendeeBtn.addEventListener('click', addAttendee);
+    el.attendeeInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addAttendee();
+      }
+    });
+
+    el.agendaTitle.addEventListener('input', (e) => {
+      state.agendaTitle = e.target.value;
+      saveState();
+    });
+
+    el.themeToggle.addEventListener('click', () => {
+      state.darkMode = !state.darkMode;
+      applyTheme();
+      saveState();
+    });
+
+    el.btnPdf.addEventListener('click', exportPDF);
+    el.btnWa.addEventListener('click', exportWhatsApp);
+    el.btnClearAll.addEventListener('click', openDeleteAllConfirm);
+
+    window.onload = function() {
+      loadState();
+    };
+  </script>
+</body>
+</html>
